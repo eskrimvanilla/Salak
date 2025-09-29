@@ -1,9 +1,9 @@
 <?php
 include_once 'connect.php';
 
-// Pagination settings
-$limit = 6; // number of doctors per page
-$page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int)$_GET['page'] : 1;
+// Pagination
+$page = filter_input(INPUT_GET, 'page', FILTER_VALIDATE_INT) ?: 1;
+$limit = 6;
 $offset = ($page - 1) * $limit;
 
 // Preserve existing query parameters except 'page'
@@ -12,18 +12,21 @@ unset($queryParams['page']);
 $baseUrl = $_SERVER['PHP_SELF'] . '?' . http_build_query($queryParams);
 
 // Count total doctors
-$resultCount = $conn->query("SELECT COUNT(*) AS total FROM doctors");
-$rowCount = $resultCount->fetch_assoc();
-$totalDoctors = $rowCount['total'];
-$totalPages = ceil($totalDoctors / $limit);
+$count_query = "SELECT COUNT(*) as total FROM doctors";
+$count_result = $conn->query($count_query);
+$total_doctors = $count_result->fetch_assoc()['total'];
+$totalPages = ceil($total_doctors / $limit);
 
-// Fetch doctors
-$doctors_query = "SELECT * FROM doctors ORDER BY id DESC LIMIT $limit OFFSET $offset";
+// Get doctors with pagination
+$doctors_query = "SELECT * FROM doctors ORDER BY name ASC LIMIT $limit OFFSET $offset";
 $doctors_result = $conn->query($doctors_query);
+
+// Base URL for pagination
+$baseUrl = $_SERVER['PHP_SELF'] . '?1=1';
 ?>
 
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -32,7 +35,7 @@ $doctors_result = $conn->query($doctors_query);
     <meta name="author" content="RS Salak dr. H. Sadjiman">
     
     <meta property="og:type" content="website">
-    <meta property="og:title" content="RS Salak dr. H. Sadjiman Bogor">
+    <meta property="og:title" content="RS Salak dr. H. Sadjiman Bogor"> 
     <meta property="og:description" content="Pelayanan kesehatan terbaik di Bogor">
     <meta property="og:image" content="assets/img/og-image.jpg">
     
@@ -143,7 +146,7 @@ $doctors_result = $conn->query($doctors_query);
                 </nav>
 
                 <div class="flex items-center space-x-4">
-                    <a href="https://wa.me/081281900808" 
+                    <a href="https://wa.me/6281281900808" 
                        class="hidden md:inline-flex items-center bg-primary text-white px-4 py-2 rounded-lg hover:bg-teal-700 transition-colors focus-visible">
                         <i class="fab fa-whatsapp mr-2"></i>
                         WhatsApp
@@ -275,6 +278,212 @@ $doctors_result = $conn->query($doctors_query);
                         </div>
                     </section>
 
+                    <section id="dokter" class="bg-white rounded-2xl shadow-lg p-8">
+                        <h3 class="text-3xl font-bold text-center mb-8 text-gray-800">
+                            <i class="fas fa-user-md mr-3 text-primary"></i>
+                            Dokter Spesialis Kami
+                        </h3>
+                        <p class="text-center text-gray-600 mb-8">
+                            Tim dokter spesialis berpengalaman siap memberikan pelayanan terbaik
+                        </p>
+                        
+                        <?php if ($doctors_result && $doctors_result->num_rows > 0): ?>
+                            <div id="doctors-list" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                                <?php while($doctor = $doctors_result->fetch_assoc()): ?>
+                                    <div class="card-hover bg-gradient-to-b from-gray-50 to-white rounded-xl shadow-md overflow-hidden">
+                                        <div class="h-48 bg-gray-200 overflow-hidden">
+                                            <?php 
+                                            // Handle both old image_url and new image columns
+                                            $image_src = '';
+                                            if (!empty($doctor['image'])) {
+                                                // New file-based system
+                                                $image_path = 'assets/doctors/' . $doctor['image'];
+                                                $image_src = file_exists($image_path) ? $image_path : '';
+                                            } elseif (!empty($doctor['image_url'])) {
+                                                // Legacy URL-based system
+                                                $image_src = $doctor['image_url'];
+                                            }
+                                            
+                                            // Fallback to default image if no image found
+                                            if (empty($image_src)) {
+                                                $image_src = 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=300&h=300&fit=crop&crop=face';
+                                            }
+                                            ?>
+                                            <img src="<?= htmlspecialchars($image_src) ?>" 
+                                                alt="Dr. <?= htmlspecialchars($doctor['name']) ?> - <?= htmlspecialchars($doctor['specialization']) ?>"
+                                                class="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                                                loading="lazy"
+                                                onerror="this.src='https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=300&h=300&fit=crop&crop=face'">
+                                        </div>
+                                        <div class="p-6">
+                                            <h4 class="text-xl font-bold text-gray-800 mb-2">
+                                                <?= htmlspecialchars($doctor['name']) ?>
+                                            </h4>
+                                            <p class="text-primary font-semibold mb-3 flex items-center">
+                                                <i class="fas fa-stethoscope mr-2"></i>
+                                                <?= htmlspecialchars($doctor['specialization']) ?>
+                                            </p>
+                                            <!-- <p class="text-gray-600 text-sm leading-relaxed">
+                                                <?= htmlspecialchars(substr($doctor['experience'], 0, 100)) ?>
+                                                <?= strlen($doctor['experience']) > 100 ? '...' : '' ?>
+                                            </p> -->
+                                        </div>
+                                    </div>
+                                <?php endwhile; ?>
+                            </div>
+
+                            <!-- Pagination -->
+                            <?php if ($totalPages > 1): ?>
+                                <div class="flex justify-center mt-8 space-x-2">
+                                    <?php if ($page > 1): ?>
+                                        <a href="<?= $baseUrl . '&page=' . ($page - 1) ?>#dokter" 
+                                        class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors flex items-center">
+                                            <i class="fas fa-chevron-left mr-1"></i> Prev
+                                        </a>
+                                    <?php endif; ?>
+
+                                    <?php 
+                                    // Show limited pagination numbers
+                                    $start_page = max(1, $page - 2);
+                                    $end_page = min($totalPages, $page + 2);
+                                    
+                                    for ($i = $start_page; $i <= $end_page; $i++): ?>
+                                        <?php if ($i == $page): ?>
+                                            <span class="px-4 py-2 bg-primary text-white rounded-lg font-semibold"><?= $i ?></span>
+                                        <?php else: ?>
+                                            <a href="<?= $baseUrl . '&page=' . $i ?>#dokter" 
+                                            class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"><?= $i ?></a>
+                                        <?php endif; ?>
+                                    <?php endfor; ?>
+
+                                    <?php if ($page < $totalPages): ?>
+                                        <a href="<?= $baseUrl . '&page=' . ($page + 1) ?>#dokter" 
+                                        class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors flex items-center">
+                                            Next <i class="fas fa-chevron-right ml-1"></i>
+                                        </a>
+                                    <?php endif; ?>
+                                </div>
+                                
+                                <!-- Page info -->
+                                <div class="text-center mt-4 text-sm text-gray-600">
+                                    Halaman <?= $page ?> dari <?= $totalPages ?> • 
+                                    Menampilkan <?= ($offset + 1) ?> - <?= min($offset + $limit, $total_doctors) ?> dari <?= $total_doctors ?> dokter
+                                </div>
+                            <?php endif; ?>
+
+                            <!-- Link to full doctors page -->
+                            <div class="text-center mt-8">
+                                <a href="doctors.php" 
+                                class="inline-flex items-center bg-primary hover:bg-teal-700 text-white px-6 py-3 rounded-lg transition-colors">
+                                    <i class="fas fa-users mr-2"></i>
+                                    Lihat Semua Dokter
+                                </a>
+                            </div>
+
+                        <?php else: ?>
+                            <!-- No doctors found -->
+                            <div class="text-center py-12">
+                                <i class="fas fa-user-md text-6xl text-gray-400 mb-4"></i>
+                                <h4 class="text-xl font-bold text-gray-800 mb-2">Belum Ada Dokter</h4>
+                                <?php if (isset($_SESSION['user_id'])): ?>
+                                    <a href="manage_doctors.php" 
+                                    class="inline-flex items-center bg-primary hover:bg-teal-700 text-white px-6 py-3 rounded-lg transition-colors">
+                                        <i class="fas fa-plus mr-2"></i>
+                                        Tambah Dokter
+                                    </a>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
+                    </section>
+
+                    <section id="visi-misi" class="bg-white rounded-2xl shadow-lg p-8">
+                        <h3 class="text-3xl font-bold text-center mb-8 text-gray-800">
+                            <i class="fas fa-bullseye mr-3 text-primary"></i>
+                            Visi, Misi & Motto
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                            <div class="space-y-4">
+                                <h4 class="text-2xl font-semibold text-primary flex items-center">
+                                    <i class="fas fa-eye mr-3"></i>Visi
+                                </h4>
+                                <p class="text-gray-700 leading-relaxed">
+                                    Rumah Sakit Salak menjadi kebanggaan Prajurit, ASN, Keluarga dan Masyarakat Umum serta mengutamakan keselamatan pasien.
+                                </p>
+                            </div>
+                            <div class="space-y-4">
+                                <h4 class="text-2xl font-semibold text-secondary flex items-center">
+                                    <i class="fas fa-tasks mr-3"></i>Misi
+                                </h4>
+                                <ul class="text-gray-700 space-y-2">
+                                    <li class="flex items-start">
+                                        <i class="fas fa-check-circle text-primary mt-1 mr-3"></i>
+                                        Mengutamakan pelayanan yang Paripurna
+                                    </li>
+                                    <li class="flex items-start">
+                                        <i class="fas fa-check-circle text-primary mt-1 mr-3"></i>
+                                        Menyelenggarakan Dukungan Kesehatan yang handal
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="text-center bg-white rounded-xl p-6 shadow-md">
+                            <h4 class="text-2xl font-semibold text-accent mb-4 flex items-center justify-center">
+                                <i class="fas fa-quote-left mr-3"></i>Motto
+                            </h4>
+                            <p class="text-xl italic text-gray-800 font-medium">
+                                "Senyum, Antisipatif, Lembut, Aman, Kepuasan"
+                            </p>
+                        </div>
+                    </section>
+
+                    <section id="profil" class="bg-white rounded-2xl shadow-lg p-8">
+                        <h3 class="text-3xl font-bold text-center mb-8 text-gray-800">
+                            <i class="fas fa-hospital mr-3 text-primary"></i>
+                            Profil Rumah Sakit
+                        </h3>
+                        <p class="text-center text-gray-700 leading-relaxed mb-12 text-lg">
+                            Rumah Sakit Salak di dirikan pada tanggal 19 Juni 1925 diserahkan oleh pemerintah Belanda kepada Pemerintah TNI Angkatan Darat untuk dijadikan RS TNI AD.
+                            Rumah Sakit Salak saat ini memiliki tempat tidur Bed bagi pasien sebanyak 138 yang meliputi rawat jalan dan rawat inap.
+                            Fasilitas dan pelayanan Rumah Sakit Salak terdiri dari Pelayanan IGD 24 Jam, MCU, dan 17 Poli Klinik Dokter Spesialis.
+                        </p>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                            <div class="card-hover text-center bg-gradient-to-b from-gray-50 to-white p-6 rounded-xl shadow-md">
+                                <img src="assets/doctors/doctor_68d9e7bdc0929_1759111101.jpg"
+                                    alt="Kepala Rumah Sakit Salak"
+                                    class="w-48 h-48 mx-auto rounded-full object-cover mb-4 border-4 border-primary shadow-lg"
+                                    loading="lazy"
+                                    width="192"
+                                    height="192">
+                                <h4 class="text-xl font-semibold text-gray-800 mb-2">Letkol Ckm (K) Dr. dr. Nanik P, Sp.PK., M.H., M.A.R.S</h4>
+                                <p class="text-primary font-medium mb-3">Kepala Rumah Sakit Salak</p>
+                                <p class="text-sm text-gray-600">Memimpin dengan visi kesehatan terdepan</p>
+                            </div>
+                            <div class="card-hover text-center bg-gradient-to-b from-gray-50 to-white p-6 rounded-xl shadow-md">
+                                <img src="https://placehold.co/200x300"
+                                    alt="Kepala Rumah Sakit Salak"
+                                    class="w-48 h-48 mx-auto rounded-full object-cover mb-4 border-4 border-primary shadow-lg"
+                                    loading="lazy"
+                                    width="192"
+                                    height="192">
+                                <h4 class="text-xl font-semibold text-gray-800 mb-2">dr. </h4>
+                                <p class="text-primary font-medium mb-3">Peran</p>
+                                <p class="text-sm text-gray-600">Desc</p>
+                            </div>
+                            <div class="card-hover text-center bg-gradient-to-b from-gray-50 to-white p-6 rounded-xl shadow-md">
+                                <img src="https://placehold.co/200x300"
+                                    alt="Kepala Rumah Sakit Salak"
+                                    class="w-48 h-48 mx-auto rounded-full object-cover mb-4 border-4 border-primary shadow-lg"
+                                    loading="lazy"
+                                    width="192"
+                                    height="192">
+                                <h4 class="text-xl font-semibold text-gray-800 mb-2">dr. </h4>
+                                <p class="text-primary font-medium mb-3">Peran</p>
+                                <p class="text-sm text-gray-600">Desc</p>
+                            </div>
+                        </div>
+                    </section>
+   
                     <section id="berita" class="bg-white rounded-2xl shadow-lg p-8">
                         <h2 class="text-3xl font-bold text-center mb-8 text-gray-800 flex items-center justify-center">
                             <i class="fas fa-newspaper mr-3 text-primary"></i>
@@ -342,156 +551,6 @@ $doctors_result = $conn->query($doctors_query);
                         </div>
                         <?php endwhile; ?>
                     </section>
-
-                    <section id="visi-misi" class="bg-white rounded-2xl shadow-lg p-8">
-                        <h3 class="text-3xl font-bold text-center mb-8 text-gray-800">
-                            <i class="fas fa-bullseye mr-3 text-primary"></i>
-                            Visi, Misi & Motto
-                        </h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                            <div class="space-y-4">
-                                <h4 class="text-2xl font-semibold text-primary flex items-center">
-                                    <i class="fas fa-eye mr-3"></i>Visi
-                                </h4>
-                                <p class="text-gray-700 leading-relaxed">
-                                    Rumah Sakit Salak menjadi kebanggaan bagi keluarga, ASN, Prajurit, serta Masyarakat umum yang memetingkan keselamatan pasien.
-                                </p>
-                            </div>
-                            <div class="space-y-4">
-                                <h4 class="text-2xl font-semibold text-secondary flex items-center">
-                                    <i class="fas fa-tasks mr-3"></i>Misi
-                                </h4>
-                                <ul class="text-gray-700 space-y-2">
-                                    <li class="flex items-start">
-                                        <i class="fas fa-check-circle text-primary mt-1 mr-3"></i>
-                                        Mengutamakan pelayanan Paripurna
-                                    </li>
-                                    <li class="flex items-start">
-                                        <i class="fas fa-check-circle text-primary mt-1 mr-3"></i>
-                                        Menyelenggarakan Dukungan Kesehatan yang handal
-                                    </li>
-                                </ul>
-                            </div>
-                        </div>
-                        <div class="text-center bg-white rounded-xl p-6 shadow-md">
-                            <h4 class="text-2xl font-semibold text-accent mb-4 flex items-center justify-center">
-                                <i class="fas fa-quote-left mr-3"></i>Motto
-                            </h4>
-                            <p class="text-xl italic text-gray-800 font-medium">
-                                "Senyum, Antisipatif, Lembut, Aman, Kepuasan"
-                            </p>
-                        </div>
-                    </section>
-
-                    <section id="profil" class="bg-white rounded-2xl shadow-lg p-8">
-                        <h3 class="text-3xl font-bold text-center mb-8 text-gray-800">
-                            <i class="fas fa-hospital mr-3 text-primary"></i>
-                            Profil Rumah Sakit
-                        </h3>
-                        <p class="text-center text-gray-700 leading-relaxed mb-12 text-lg">
-                            Rumah Sakit Salak di dirikan pada tanggal 19 Juni 1925 diserahkan oleh pemerintah Belanda kepada Pemerintah TNI Angkatan Darat untuk dijadikan Rs TNI AD.
-                            Rumah Sakit Salak saat ini memiliki tempat tidur Bed bagi pasien sebanyak 138 yang meliputi rawat jalan dan rawat inap.
-                            Fasilitas dan pelayanan Rumah Sakit Salak terdiri dari Pelayanan IGD 24 Jam, MCU, dan 17 Poli Klinik Dokter Spesialis.
-                        </p>
-
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                            <div class="card-hover text-center bg-gradient-to-b from-gray-50 to-white p-6 rounded-xl shadow-md">
-                                <img src="https://placehold.co/200x300" 
-                                     alt="Kepala Rumah Sakit Salak"
-                                     class="w-32 h-32 mx-auto rounded-full object-cover mb-4 border-4 border-primary shadow-lg"
-                                     loading="lazy"
-                                     width="128"
-                                     height="128">
-                                <h4 class="text-xl font-semibold text-gray-800 mb-2">Letkol Ckm (K) Dr. dr. Nanik P, Sp.PK., M.H., M.A.R.S</h4>
-                                <p class="text-primary font-medium mb-3">Kepala Rumah Sakit Salak</p>
-                                <p class="text-sm text-gray-600">Memimpin dengan visi kesehatan terdepan</p>
-                            </div>
-
-                            <div class="card-hover text-center bg-gradient-to-b from-gray-50 to-white p-6 rounded-xl shadow-md">
-                                <img src="https://placehold.co/200x300" 
-                                     alt="dr. Siti Aminah - Wakil Direktur Pelayanan Medis dengan spesialisasi penyakit dalam"
-                                     class="w-32 h-32 mx-auto rounded-full object-cover mb-4 border-4 border-secondary shadow-lg"
-                                     loading="lazy"
-                                     width="128"
-                                     height="128">
-                                <h4 class="text-xl font-semibold text-gray-800 mb-2">dr. </h4>
-                                <p class="text-secondary font-medium mb-3">Peran </p>
-                                <p class="text-sm text-gray-600">Desc</p>
-                            </div>
-
-                            <div class="card-hover text-center bg-gradient-to-b from-gray-50 to-white p-6 rounded-xl shadow-md">
-                                <img src="https://placehold.co/200x300" 
-                                     alt="Ns. Andi Prasetyo - Kepala Keperawatan dengan sertifikasi keperawatan tingkat lanjut"
-                                     class="w-32 h-32 mx-auto rounded-full object-cover mb-4 border-4 border-accent shadow-lg"
-                                     loading="lazy"
-                                     width="128"
-                                     height="128">
-                                <h4 class="text-xl font-semibold text-gray-800 mb-2">dr. </h4>
-                                <p class="text-accent font-medium mb-3">Peran</p>
-                                <p class="text-sm text-gray-600">Desc</p>
-                            </div>
-                        </div>
-                    </section>
-   
-                    <section id="dokter" class="bg-white rounded-2xl shadow-lg p-8">
-                        <h3 class="text-3xl font-bold text-center mb-8 text-gray-800">
-                            <i class="fas fa-user-md mr-3 text-primary"></i>
-                            Dokter Spesialis Kami
-                        </h3>
-                        <p class="text-center text-gray-600 mb-8">
-                            Tim dokter spesialis berpengalaman siap memberikan pelayanan terbaik
-                        </p>
-                        
-                        <?php if ($doctors_result && $doctors_result->num_rows > 0): ?>
-                            <div id="doctors-list" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                                <?php while($doctor = $doctors_result->fetch_assoc()): ?>
-                                    <div class="card-hover bg-gradient-to-b from-gray-50 to-white rounded-xl shadow-md overflow-hidden">
-                                        <div class="h-48 bg-gray-200 overflow-hidden">
-                                            <img src="<?= htmlspecialchars($doctor['image_url']) ?>" 
-                                                alt="Dr. <?= htmlspecialchars($doctor['name']) ?> - <?= htmlspecialchars($doctor['specialization']) ?>"
-                                                class="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                                                loading="lazy"
-                                                onerror="this.src='https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=300&h=300&fit=crop&crop=face'">
-                                        </div>
-                                        <div class="p-6">
-                                            <h4 class="text-xl font-bold text-gray-800 mb-2">
-                                                Dr. <?= htmlspecialchars($doctor['name']) ?>
-                                            </h4>
-                                            <p class="text-primary font-semibold mb-3 flex items-center">
-                                                <i class="fas fa-stethoscope mr-2"></i>
-                                                <?= htmlspecialchars($doctor['specialization']) ?>
-                                            </p>
-                                            <p class="text-gray-600 text-sm leading-relaxed">
-                                                <?= htmlspecialchars(substr($doctor['experience'], 0, 100)) ?>
-                                                <?= strlen($doctor['experience']) > 100 ? '...' : '' ?>
-                                            </p>
-                                        </div>
-                                    </div>
-                                <?php endwhile; ?>
-                            </div>
-
-                            <div class="flex justify-center mt-8 space-x-2">
-                                <?php if ($page > 1): ?>
-                                    <a href="<?= $baseUrl . '&page=' . ($page - 1) ?>#dokter" 
-                                    class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">&laquo; Prev</a>
-                                <?php endif; ?>
-
-                                <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                                    <?php if ($i == $page): ?>
-                                        <span class="px-4 py-2 bg-primary text-white rounded-lg"><?= $i ?></span>
-                                    <?php else: ?>
-                                        <a href="<?= $baseUrl . '&page=' . $i ?>#dokter" 
-                                        class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"><?= $i ?></a>
-                                    <?php endif; ?>
-                                <?php endfor; ?>
-
-                                <?php if ($page < $totalPages): ?>
-                                    <a href="<?= $baseUrl . '&page=' . ($page + 1) ?>#dokter" 
-                                    class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Next &raquo;</a>
-                                <?php endif; ?>
-                            </div>
-                                <?php endif; ?>
-                        </section>
                     </div>
 
                 <aside class="space-y-8">
@@ -505,7 +564,7 @@ $doctors_result = $conn->query($doctors_query);
                                 <i class="fas fa-user-plus mr-3 w-5 text-primary"></i>
                                 Pendaftaran Online
                             </a>
-                            <a href="#" class="block p-3 text-gray-700 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors focus-visible flex items-center">
+                            <a href="jadwal_dokter.php" class="block p-3 text-gray-700 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors focus-visible flex items-center">
                                 <i class="fas fa-calendar-alt mr-3 w-5 text-secondary"></i>
                                 Jadwal Dokter
                             </a>
@@ -697,7 +756,6 @@ $doctors_result = $conn->query($doctors_query);
                             <i class="fas fa-phone text-primary mt-1"></i>
                             <div>
                                 <p class="font-medium">Telepon</p>
-                                <a href="tel:081281900808" class="text-gray-300 hover:text-white transition-colors">
                                     0812-8190-0808
                                 </a>
                             </div>
@@ -715,7 +773,7 @@ $doctors_result = $conn->query($doctors_query);
                             <i class="fab fa-whatsapp text-green-500 mt-1"></i>
                             <div>
                                 <p class="font-medium">WhatsApp</p>
-                                <a href="https://wa.me/081281900808" class="text-gray-300 hover:text-white transition-colors">
+                                <a href="https://wa.me/6281281900808" class="text-gray-300 hover:text-white transition-colors">
                                     Chat dengan kami
                                 </a>
                             </div>

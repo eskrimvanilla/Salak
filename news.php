@@ -24,7 +24,7 @@ $categoryColors = [
 $categoryClass = $categoryColors[$article['category']] ?? 'bg-gray-100 text-gray-800';
 ?>
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <title><?php echo htmlspecialchars($article['title']); ?> | RS Salak</title>

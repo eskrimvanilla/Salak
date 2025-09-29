@@ -4,7 +4,7 @@ include_once 'connect.php';
 $month = isset($_GET['month']) ? trim($_GET['month']) : '';
 ?>
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Arsip Berita<?php echo $month ? " - " . htmlspecialchars($month) : ''; ?> | RS Salak</title>

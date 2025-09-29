@@ -135,7 +135,7 @@ $stmt->close();
 ?>
 
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <title>Kelola Berita - RS Salak</title>
